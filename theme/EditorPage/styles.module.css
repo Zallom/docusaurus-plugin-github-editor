@@ -1,0 +1,631 @@
+/* CSS Custom Properties — override these to theme the editor */
+:root {
+  --ghe-bg-primary: var(--ifm-background-color, #0a0820);
+  --ghe-bg-secondary: var(--ifm-background-surface-color, #0d0a25);
+  --ghe-bg-tertiary: #060318;
+  --ghe-border-color: var(--ifm-toc-border-color, #252332);
+  --ghe-text-primary: var(--ifm-color-content, #e0e0e8);
+  --ghe-text-secondary: var(--ifm-color-content-secondary, #a0a0b0);
+  --ghe-text-muted: #555;
+  --ghe-accent-color: var(--ifm-color-primary, #D35F5F);
+  --ghe-hover-bg: var(--ifm-hover-overlay, #1a1830);
+  --ghe-font-mono: var(--ifm-font-family-monospace, 'JetBrains Mono', 'Consolas', monospace);
+}
+
+/* Editor page root — fills the docs content area */
+.editorRoot {
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100vh - var(--ifm-navbar-height) - 120px);
+}
+
+/* Persistent exit bar — always visible at top of editor page */
+.exitBar {
+  display: flex;
+  align-items: center;
+  padding: 0.5rem 1rem;
+  background: var(--ghe-bg-tertiary);
+  border-bottom: 1px solid var(--ghe-border-color);
+  flex-shrink: 0;
+}
+
+.exitButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: transparent;
+  border: none;
+  color: var(--ghe-text-secondary);
+  font-size: 0.85rem;
+  font-family: var(--ifm-font-family-base);
+  cursor: pointer;
+  padding: 0.3rem 0.5rem;
+  border-radius: 6px;
+  transition: color 0.2s, background 0.15s;
+}
+
+.exitButton:hover {
+  color: var(--ghe-text-primary);
+  background: var(--ghe-hover-bg);
+}
+
+.exitButtonIcon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+/* Centered message for auth, loading, error states */
+.centeredMessage {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex: 1;
+  padding: 2rem;
+}
+
+.authCard {
+  background: var(--ghe-bg-primary);
+  border: 1px solid var(--ghe-border-color);
+  border-radius: 12px;
+  padding: 3rem;
+  max-width: 420px;
+  width: 100%;
+  text-align: center;
+}
+
+.authLogo {
+  width: 48px;
+  height: 48px;
+  margin-bottom: 1.5rem;
+}
+
+.authTitle {
+  font-family: var(--ifm-heading-font-family);
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-bottom: 0.75rem;
+  color: var(--ghe-text-primary);
+}
+
+.authDescription {
+  color: var(--ghe-text-secondary);
+  font-size: 0.95rem;
+  margin-bottom: 2rem;
+  line-height: 1.5;
+}
+
+.authButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: #fff;
+  color: #000;
+  border: none;
+  border-radius: 8px;
+  padding: 0.75rem 1.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.authButton:hover {
+  opacity: 0.9;
+}
+
+.authButtonIcon {
+  width: 20px;
+  height: 20px;
+}
+
+/* Loading (used by EditorContent) */
+.loadingContainer {
+  composes: centeredMessage;
+  color: var(--ghe-text-secondary);
+  font-size: 1rem;
+}
+
+/* Editor layout */
+.editorWrapper {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+  background: var(--ghe-bg-primary);
+  min-height: calc(100vh - var(--ifm-navbar-height) - 120px);
+  border: 1px solid var(--ghe-border-color);
+  border-radius: 8px;
+}
+
+.editorHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  background: var(--ghe-bg-tertiary);
+  border-bottom: 1px solid var(--ghe-border-color);
+  flex-shrink: 0;
+}
+
+.headerLeft {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.userAvatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.badge {
+  background: var(--ghe-hover-bg);
+  border: 1px solid var(--ghe-border-color);
+  color: var(--ghe-accent-color);
+  border-radius: 4px;
+  padding: 0.15rem 0.5rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  font-family: var(--ghe-font-mono);
+  flex-shrink: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.filePath {
+  color: var(--ghe-text-secondary);
+  font-size: 0.85rem;
+  font-family: var(--ghe-font-mono);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.headerRight {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.logoutButton {
+  background: transparent;
+  border: 1px solid var(--ghe-border-color);
+  color: var(--ghe-text-secondary);
+  border-radius: 6px;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s;
+}
+
+.logoutButton:hover {
+  border-color: var(--ghe-accent-color);
+  color: var(--ghe-accent-color);
+}
+
+/* Markdown formatting toolbar */
+.markdownToolbar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0.4rem 1rem;
+  background: var(--ghe-bg-secondary);
+  border-bottom: 1px solid var(--ghe-border-color);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.formatButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: var(--ghe-text-secondary);
+  border-radius: 4px;
+  padding: 0.3rem 0.5rem;
+  font-size: 0.8rem;
+  font-family: var(--ghe-font-mono);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  min-width: 28px;
+  height: 28px;
+}
+
+.formatButton:hover {
+  background: var(--ghe-hover-bg);
+  color: var(--ghe-text-primary);
+}
+
+.formatButton:active {
+  background: var(--ghe-border-color);
+}
+
+.formatBold {
+  font-weight: 800;
+}
+
+.formatItalic {
+  font-style: italic;
+}
+
+.formatSeparator {
+  width: 1px;
+  height: 20px;
+  background: var(--ghe-border-color);
+  margin: 0 0.3rem;
+  flex-shrink: 0;
+}
+
+.dropdownWrapper {
+  position: relative;
+}
+
+.dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  background: var(--ghe-bg-secondary);
+  border: 1px solid var(--ghe-border-color);
+  border-radius: 8px;
+  padding: 0.3rem;
+  z-index: 10;
+  min-width: 180px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
+.dropdownItem {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  background: transparent;
+  border: none;
+  color: var(--ghe-text-primary);
+  padding: 0.45rem 0.6rem;
+  border-radius: 5px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background 0.15s;
+  text-align: left;
+}
+
+.dropdownItem:hover {
+  background: var(--ghe-hover-bg);
+}
+
+.dropdownType {
+  margin-left: auto;
+  color: var(--ghe-text-muted);
+  font-family: var(--ghe-font-mono);
+  font-size: 0.75rem;
+}
+
+/* Split panes */
+.editorPanes {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+.editorPane {
+  flex: 1;
+  overflow: auto;
+  min-width: 0;
+}
+
+.editorPane:first-child {
+  border-right: 1px solid var(--ghe-border-color);
+}
+
+.previewPane {
+  flex: 1;
+  overflow: auto;
+  padding: 1.5rem;
+  min-width: 0;
+  color: var(--ghe-text-primary);
+  font-size: 0.95rem;
+  line-height: 1.7;
+}
+
+.previewPane h1,
+.previewPane h2,
+.previewPane h3,
+.previewPane h4,
+.previewPane h5,
+.previewPane h6 {
+  font-family: var(--ifm-heading-font-family);
+  color: var(--ghe-text-primary);
+  margin-top: 1.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.previewPane h1 { font-size: 2rem; }
+.previewPane h2 { font-size: 1.5rem; }
+.previewPane h3 { font-size: 1.25rem; }
+
+.previewPane a {
+  color: var(--ghe-accent-color);
+}
+
+.previewPane code {
+  background: var(--ghe-hover-bg);
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  font-size: 0.85em;
+}
+
+.previewPane pre {
+  background: var(--ghe-hover-bg);
+  padding: 1rem;
+  border-radius: 8px;
+  overflow-x: auto;
+}
+
+.previewPane pre code {
+  background: none;
+  padding: 0;
+}
+
+.previewPane blockquote {
+  border-left: 3px solid var(--ghe-accent-color);
+  padding-left: 1rem;
+  margin-left: 0;
+  color: var(--ghe-text-secondary);
+}
+
+.previewPane table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1rem 0;
+}
+
+.previewPane th,
+.previewPane td {
+  border: 1px solid var(--ghe-border-color);
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+}
+
+.previewPane th {
+  background: var(--ghe-hover-bg);
+  font-weight: 600;
+}
+
+.previewPane img {
+  max-width: 100%;
+  border-radius: 8px;
+}
+
+.previewLabel {
+  display: none;
+}
+
+/* Toolbar */
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: var(--ghe-bg-tertiary);
+  border-top: 1px solid var(--ghe-border-color);
+  flex-shrink: 0;
+}
+
+.commitInput {
+  flex: 1;
+  background: var(--ghe-bg-primary);
+  border: 1px solid var(--ghe-border-color);
+  border-radius: 6px;
+  padding: 0.5rem 0.75rem;
+  color: var(--ghe-text-primary);
+  font-size: 0.9rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.commitInput:focus {
+  border-color: var(--ghe-accent-color);
+}
+
+.commitInput::placeholder {
+  color: var(--ghe-text-muted);
+}
+
+.cancelButton {
+  background: transparent;
+  border: 1px solid var(--ghe-border-color);
+  color: var(--ghe-text-secondary);
+  border-radius: 6px;
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s;
+  white-space: nowrap;
+}
+
+.cancelButton:hover {
+  border-color: var(--ghe-accent-color);
+  color: var(--ghe-accent-color);
+}
+
+.proposeButton {
+  background: var(--ghe-accent-color);
+  border: none;
+  color: #fff;
+  border-radius: 6px;
+  padding: 0.5rem 1.25rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s;
+  white-space: nowrap;
+}
+
+.proposeButton:hover {
+  opacity: 0.9;
+}
+
+.proposeButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Success screen */
+.successContainer {
+  composes: centeredMessage;
+}
+
+.successCard {
+  background: var(--ghe-bg-primary);
+  border: 1px solid var(--ghe-border-color);
+  border-radius: 12px;
+  padding: 3rem;
+  max-width: 480px;
+  width: 100%;
+  text-align: center;
+}
+
+.successIcon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+.successTitle {
+  font-family: var(--ifm-heading-font-family);
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-bottom: 0.75rem;
+  color: var(--ghe-text-primary);
+}
+
+.successDescription {
+  color: var(--ghe-text-secondary);
+  font-size: 0.95rem;
+  margin-bottom: 2rem;
+  line-height: 1.5;
+}
+
+.successActions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.prLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--ghe-accent-color);
+  color: #fff;
+  border-radius: 8px;
+  padding: 0.75rem 1.5rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: opacity 0.2s;
+}
+
+.prLink:hover {
+  opacity: 0.9;
+  color: #fff;
+  text-decoration: none;
+}
+
+.backLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: transparent;
+  border: 1px solid var(--ghe-border-color);
+  color: var(--ghe-text-secondary);
+  border-radius: 8px;
+  padding: 0.75rem 1.5rem;
+  font-size: 0.95rem;
+  text-decoration: none;
+  transition: border-color 0.2s, color 0.2s;
+}
+
+.backLink:hover {
+  border-color: var(--ghe-accent-color);
+  color: var(--ghe-text-primary);
+  text-decoration: none;
+}
+
+/* Error (used by EditorContent) */
+.errorContainer {
+  composes: centeredMessage;
+}
+
+.errorCard {
+  background: var(--ghe-bg-primary);
+  border: 1px solid #3a2020;
+  border-radius: 12px;
+  padding: 2.5rem;
+  max-width: 420px;
+  width: 100%;
+  text-align: center;
+}
+
+.errorTitle {
+  font-family: var(--ifm-heading-font-family);
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+  color: var(--ghe-accent-color);
+}
+
+.errorMessage {
+  color: var(--ghe-text-secondary);
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .editorPanes {
+    flex-direction: column;
+  }
+
+  .editorPane:first-child {
+    border-right: none;
+    border-bottom: 1px solid var(--ghe-border-color);
+  }
+
+  .previewLabel {
+    display: block;
+    padding: 0.5rem 1rem;
+    background: var(--ghe-bg-tertiary);
+    border-bottom: 1px solid var(--ghe-border-color);
+    color: var(--ghe-text-secondary);
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .toolbar {
+    flex-wrap: wrap;
+  }
+
+  .commitInput {
+    width: 100%;
+    order: -1;
+  }
+
+  .editorHeader {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .filePath {
+    width: 100%;
+    order: 1;
+  }
+}

@@ -1,0 +1,60 @@
+{
+  "name": "docusaurus-plugin-github-editor",
+  "version": "1.0.0",
+  "description": "A Docusaurus v3 plugin that adds a full-featured documentation editor with GitHub OAuth, CodeMirror, live MDX preview, and automatic PR creation.",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "files": [
+    "lib",
+    "theme",
+    "theme.d.ts",
+    "worker-template"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "docusaurus",
+    "docusaurus-plugin",
+    "github",
+    "editor",
+    "markdown",
+    "codemirror",
+    "mdx",
+    "documentation"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Zallom/docusaurus-plugin-github-editor.git"
+  },
+  "peerDependencies": {
+    "@docusaurus/core": "^3.0.0",
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0"
+  },
+  "dependencies": {
+    "@codemirror/commands": "^6.10.2",
+    "@codemirror/lang-markdown": "^6.5.0",
+    "@codemirror/language": "^6.12.2",
+    "@codemirror/language-data": "^6.5.2",
+    "@codemirror/search": "^6.6.0",
+    "@codemirror/state": "^6.5.4",
+    "@codemirror/view": "^6.39.16",
+    "@lezer/highlight": "^1.2.3",
+    "@mdx-js/mdx": "^3.0.0",
+    "codemirror": "^6.0.2",
+    "remark-directive": "^4.0.0",
+    "remark-gfm": "^4.0.1",
+    "unist-util-visit": "^5.0.0"
+  },
+  "devDependencies": {
+    "@docusaurus/module-type-aliases": "^3.9.2",
+    "@docusaurus/tsconfig": "^3.9.2",
+    "@docusaurus/types": "^3.9.2",
+    "tsup": "^8.0.0",
+    "typescript": "~5.6.2"
+  }
+}
