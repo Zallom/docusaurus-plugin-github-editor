@@ -31,7 +31,7 @@ export function useAuth(): AuthContextValue {
 }
 
 export default function AuthProvider({children}: {children: ReactNode}): JSX.Element {
-  const {githubClientId, oauthWorkerUrl, editRoute, storageKeyPrefix} =
+  const {githubClientId, oauthWorkerUrl, editRoute, docsRouteBasePath, storageKeyPrefix} =
     usePluginData(PLUGIN_NAME) as EditorGlobalData;
 
   const tokenKey = `${storageKeyPrefix}-token`;
@@ -85,7 +85,8 @@ export default function AuthProvider({children}: {children: ReactNode}): JSX.Ele
     const state = crypto.randomUUID();
     sessionStorage.setItem('oauth-state', state);
 
-    const redirectUri = `${window.location.origin}${editRoute}`;
+    const routeBase = docsRouteBasePath ? `/${docsRouteBasePath}` : '';
+    const redirectUri = `${window.location.origin}${routeBase}${editRoute}`;
     const params = new URLSearchParams({
       client_id: githubClientId,
       redirect_uri: redirectUri,

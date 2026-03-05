@@ -374,7 +374,7 @@ interface EditorContentProps {
 export default function EditorContent({source, filePath, version, versionLabels}: EditorContentProps): JSX.Element {
   const {token, user, logout} = useAuth();
   const globalData = usePluginData(PLUGIN_NAME) as EditorGlobalData;
-  const {repoOwner, repoName, baseBranch, prTitlePrefix, prBodyTemplate} = globalData;
+  const {repoOwner, repoName, baseBranch, docsRouteBasePath, prTitlePrefix, prBodyTemplate} = globalData;
   const mdxComponents = useEditorMdxComponents();
   const routerHistory = useHistory();
 
@@ -617,10 +617,10 @@ export default function EditorContent({source, filePath, version, versionLabels}
               </Translate>
             </a>
             <a
-              href="/"
+              href={docsRouteBasePath ? `/${docsRouteBasePath}` : '/'}
               onClick={(e) => {
                 e.preventDefault();
-                routerHistory.push('/');
+                routerHistory.push(docsRouteBasePath ? `/${docsRouteBasePath}` : '/');
               }}
               className={styles.backLink}>
               <Translate id="editor.success.backToDocs">

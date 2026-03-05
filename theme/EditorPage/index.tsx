@@ -11,7 +11,7 @@ import styles from './styles.module.css';
 
 const PLUGIN_NAME = 'docusaurus-plugin-github-editor';
 
-function buildFilePath(locale: string, defaultLocale: string, version: string, fileName: string): string {
+function buildFilePath(locale: string, defaultLocale: string, version: string, fileName: string, repoDocsPath: string): string {
   const isDefaultLocale = locale === defaultLocale;
   const versionDir = version === 'current' ? 'current' : `version-${version}`;
 
@@ -19,7 +19,7 @@ function buildFilePath(locale: string, defaultLocale: string, version: string, f
     return `i18n/${locale}/docusaurus-plugin-content-docs/${versionDir}/${fileName}`;
   }
   if (version === 'current') {
-    return `docs/${fileName}`;
+    return repoDocsPath ? `${repoDocsPath}/${fileName}` : fileName;
   }
   return `versioned_docs/version-${version}/${fileName}`;
 }
@@ -48,7 +48,12 @@ function EditorExitBar() {
 
   let docUrl: string;
   if (source) {
-    const slug = source.replace(/\.mdx?$/, '').replace(/\/index$/, '');
+    let slug = source.replace(/\.mdx?$/, '').replace(/\/index$/, '');
+    // Normalize category index docs: "folder/folder" → "folder"
+    const parts = slug.split('/');
+    if (parts.length >= 2 && parts[parts.length - 1] === parts[parts.length - 2]) {
+      slug = parts.slice(0, -1).join('/');
+    }
     docUrl = slug === 'readme' ? `${localePrefix}${base}/` : `${localePrefix}${base}/${slug}`;
   } else {
     docUrl = `${localePrefix}${base}/`;
@@ -76,7 +81,7 @@ function EditorInner() {
   const {i18n} = useDocusaurusContext();
   const docsVersion = useDocsVersion();
   const globalData = usePluginData(PLUGIN_NAME) as EditorGlobalData;
-  const {sourceMaps, defaultLocale, logoSrc, versionLabels} = globalData;
+  const {sourceMaps, defaultLocale, logoSrc, versionLabels, repoDocsPath} = globalData;
   const currentLocale = i18n.currentLocale;
   const version = docsVersion.version;
   const [oauthProcessing, setOAuthProcessing] = useState(false);
@@ -93,9 +98,6 @@ function EditorInner() {
 
       const href = link.getAttribute('href');
       if (!href || href.startsWith('http')) return;
-
-      e.preventDefault();
-      e.stopPropagation();
 
       let slug = href;
       const localePrefix = currentLocale !== defaultLocale ? `/${i18n.localeConfigs[currentLocale]?.path ?? currentLocale}` : '';
@@ -116,9 +118,18 @@ function EditorInner() {
         sourceFile = `${slug}.${sourceMap[slug]}`;
       } else if (sourceMap[`${slug}/index`]) {
         sourceFile = `${slug}/index.${sourceMap[`${slug}/index`]}`;
+      } else {
+        // Handle category index docs where slug is "folder" but file is "folder/folder"
+        const lastSegment = slug.split('/').pop() || slug;
+        const categoryDocId = `${slug}/${lastSegment}`;
+        if (sourceMap[categoryDocId]) {
+          sourceFile = `${categoryDocId}.${sourceMap[categoryDocId]}`;
+        }
       }
 
       if (sourceFile) {
+        e.preventDefault();
+        e.stopPropagation();
         history.push(`${location.pathname}?source=${encodeURIComponent(sourceFile)}`);
       }
     }
@@ -175,7 +186,7 @@ function EditorInner() {
     login();
   }, [login, source]);
 
-  const filePath = source ? buildFilePath(currentLocale, defaultLocale, version, source) : null;
+  const filePath = source ? buildFilePath(currentLocale, defaultLocale, version, source, repoDocsPath) : null;
 
   if (isLoading || oauthProcessing) {
     return (

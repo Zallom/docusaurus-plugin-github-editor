@@ -7,6 +7,9 @@ export interface PluginOptions {
   baseBranch: string;
 
   // Optional
+  docsPath?: string;
+  repoDocsPath?: string;
+  docsRouteBasePath?: string;
   defaultLocale?: string;
   editRoute?: string;
   editPageTitle?: string;
@@ -29,6 +32,9 @@ export interface EditorGlobalData {
   baseBranch: string;
   sourceMaps: Record<string, Record<string, string>>;
 
+  docsPath: string;
+  repoDocsPath: string;
+  docsRouteBasePath: string;
   defaultLocale: string;
   editRoute: string;
   editPageTitle: string;

@@ -12,6 +12,9 @@ const pluginOptionsSchema = Joi.object<PluginOptions>({
   repoName: Joi.string().required(),
   baseBranch: Joi.string().required(),
 
+  docsPath: Joi.string().default('docs'),
+  repoDocsPath: Joi.string().allow('').default(''),
+  docsRouteBasePath: Joi.string().allow('').default(''),
   defaultLocale: Joi.string().default('en'),
   editRoute: Joi.string().default('/edit'),
   editPageTitle: Joi.string().default('Edit documentation'),

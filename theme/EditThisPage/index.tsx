@@ -10,15 +10,24 @@ const PLUGIN_NAME = 'docusaurus-plugin-github-editor';
 /**
  * Parse the Docusaurus editUrl to extract the filename and version.
  *
- * editUrl patterns (after /tree/{branch}/):
+ * Supports both /tree/{branch}/ and /blob/{branch}/ patterns:
  *   docs/features/captcha.md                                              -> current
  *   versioned_docs/version-3.3.1/features/captcha.md                     -> 3.3.1
  *   i18n/en/docusaurus-plugin-content-docs/current/features/captcha.md   -> current
- *   i18n/en/docusaurus-plugin-content-docs/version-3.3.1/features/...    -> 3.3.1
+ *   features/captcha.md  (when docsPath is different from 'docs')        -> current
  */
-function parseEditUrl(editUrl: string, editUrlBranch: string): {fileName: string; version: string} {
-  const treeMatch = editUrl.match(new RegExp(`/tree/${editUrlBranch}/(.+)$`));
-  if (!treeMatch) return {fileName: '', version: ''};
+function parseEditUrl(editUrl: string, editUrlBranch: string, docsPath: string): {fileName: string; version: string} {
+  // Match both /tree/{branch}/ and /blob/{branch}/ patterns
+  const treeMatch = editUrl.match(new RegExp(`/(?:tree|blob)/${editUrlBranch}/(.+)$`));
+  if (!treeMatch) {
+    // Fallback: try to extract path after the last known segment
+    // For function-based editUrl that may produce custom patterns
+    const lastSlash = editUrl.lastIndexOf('/');
+    if (lastSlash >= 0) {
+      // The whole URL path after the repo — treat as a direct file path
+    }
+    return {fileName: '', version: ''};
+  }
   const path = treeMatch[1];
 
   // i18n locale path
@@ -36,18 +45,20 @@ function parseEditUrl(editUrl: string, editUrlBranch: string): {fileName: string
     return {fileName: versionMatch[2], version: versionMatch[1]};
   }
 
-  // docs/ (current version)
-  if (path.startsWith('docs/')) {
-    return {fileName: path.replace('docs/', ''), version: 'current'};
+  // docs path prefix (e.g. 'docs/' or 'wiki/')
+  const docsPrefix = docsPath + '/';
+  if (path.startsWith(docsPrefix)) {
+    return {fileName: path.slice(docsPrefix.length), version: 'current'};
   }
 
-  return {fileName: path, version: ''};
+  // Direct file path (no prefix — e.g. when editUrl points directly to the file)
+  return {fileName: path, version: 'current'};
 }
 
 export default function EditThisPage({editUrl}: Props): JSX.Element {
   const history = useHistory();
   const globalData = usePluginData(PLUGIN_NAME) as EditorGlobalData;
-  const {enableEditThisPage, versionPathPrefix, editUrlBranch} = globalData;
+  const {enableEditThisPage, versionPathPrefix, editUrlBranch, repoDocsPath, docsRouteBasePath} = globalData;
 
   // If the plugin's EditThisPage override is disabled, render a standard link
   if (!enableEditThisPage) {
@@ -62,12 +73,13 @@ export default function EditThisPage({editUrl}: Props): JSX.Element {
     );
   }
 
-  const {fileName, version} = parseEditUrl(editUrl, editUrlBranch);
+  const {fileName, version} = parseEditUrl(editUrl, editUrlBranch, repoDocsPath);
 
-  const prefix = versionPathPrefix[version] ?? '';
-  const editPath = prefix
-    ? `/${prefix}/edit?source=${encodeURIComponent(fileName)}`
-    : `/edit?source=${encodeURIComponent(fileName)}`;
+  // Build edit path: /{docsRouteBasePath}/{versionPrefix}/edit?source=...
+  const versionPrefix = versionPathPrefix[version] ?? '';
+  const routeBase = docsRouteBasePath ? `/${docsRouteBasePath}` : '';
+  const versionSegment = versionPrefix ? `/${versionPrefix}` : '';
+  const editPath = `${routeBase}${versionSegment}/edit?source=${encodeURIComponent(fileName)}`;
 
   const handleClick = (e: React.MouseEvent) => {
     e.preventDefault();

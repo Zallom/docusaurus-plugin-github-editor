@@ -42,8 +42,8 @@ import EditorPage from '@theme/EditorPage';
 `;
 }
 
-function ensureEditPages(siteDir: string, editMdxContent: string): void {
-  const docsDir = path.resolve(siteDir, 'docs');
+function ensureEditPages(siteDir: string, docsPath: string, editMdxContent: string): void {
+  const docsDir = path.resolve(siteDir, docsPath);
   if (fs.existsSync(docsDir)) {
     fs.writeFileSync(path.join(docsDir, 'edit.mdx'), editMdxContent);
   }
@@ -70,7 +70,8 @@ export default function pluginGithubEditor(
     options.editPageSidebar ?? 'sidebar',
   );
 
-  ensureEditPages(context.siteDir, editMdxContent);
+  const docsPath = options.docsPath ?? 'docs';
+  ensureEditPages(context.siteDir, docsPath, editMdxContent);
 
   return {
     name: PLUGIN_NAME,
@@ -84,7 +85,7 @@ export default function pluginGithubEditor(
 
       const sourceMaps: Record<string, Record<string, string>> = {};
 
-      const docsDir = path.resolve(context.siteDir, 'docs');
+      const docsDir = path.resolve(context.siteDir, docsPath);
       sourceMaps['current'] = buildSourceMap(docsDir);
 
       const versionedDocsDir = path.resolve(context.siteDir, 'versioned_docs');
@@ -104,6 +105,9 @@ export default function pluginGithubEditor(
         repoName: options.repoName,
         baseBranch: options.baseBranch,
         sourceMaps,
+        docsPath,
+        repoDocsPath: options.repoDocsPath ?? docsPath,
+        docsRouteBasePath: options.docsRouteBasePath ?? '',
         defaultLocale: options.defaultLocale ?? 'en',
         editRoute: options.editRoute ?? '/edit',
         editPageTitle: options.editPageTitle ?? 'Edit documentation',
@@ -120,6 +124,39 @@ export default function pluginGithubEditor(
       };
 
       setGlobalData(globalData);
+    },
+
+    async allContentLoaded({allContent, actions}: any) {
+      // Auto-derive versionLabels and versionPathPrefix from docusaurus-plugin-content-docs
+      const autoVersionLabels: Record<string, string> = {};
+      const autoVersionPathPrefix: Record<string, string> = {};
+      try {
+        const docsContent = allContent?.['docusaurus-plugin-content-docs']?.['default'];
+        const loadedVersions: Array<{versionName: string; label: string; path: string}> =
+          docsContent?.loadedVersions ?? [];
+        const docsBase = (options.docsRouteBasePath ?? '').replace(/^\/+/, '').replace(/\/+$/, '');
+        for (const v of loadedVersions) {
+          autoVersionLabels[v.versionName] = v.label;
+          let segment = v.path.replace(/^\/+/, '').replace(/\/+$/, '');
+          // Strip the docsRouteBasePath prefix to avoid duplication (e.g. /wiki/wiki)
+          if (docsBase && segment.startsWith(docsBase)) {
+            segment = segment.slice(docsBase.length).replace(/^\/+/, '');
+          }
+          autoVersionPathPrefix[v.versionName] = segment;
+        }
+      } catch {
+        // Docs plugin not available — skip
+      }
+
+      // Only update if we actually found version data
+      if (Object.keys(autoVersionLabels).length > 0) {
+        const userLabels = options.versionLabels ?? {};
+        const userPrefixes = options.versionPathPrefix ?? {};
+        actions.setGlobalData({
+          versionLabels: {...autoVersionLabels, ...userLabels},
+          versionPathPrefix: {...autoVersionPathPrefix, ...userPrefixes},
+        });
+      }
     },
 
     getDefaultCodeTranslationMessages() {

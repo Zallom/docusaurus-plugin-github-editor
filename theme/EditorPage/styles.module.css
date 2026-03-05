@@ -2,13 +2,14 @@
 :root {
   --ghe-bg-primary: var(--ifm-background-color, #0a0820);
   --ghe-bg-secondary: var(--ifm-background-surface-color, #0d0a25);
-  --ghe-bg-tertiary: #060318;
+  --ghe-bg-tertiary: var(--ifm-color-emphasis-100, #060318);
   --ghe-border-color: var(--ifm-toc-border-color, #252332);
   --ghe-text-primary: var(--ifm-color-content, #e0e0e8);
   --ghe-text-secondary: var(--ifm-color-content-secondary, #a0a0b0);
-  --ghe-text-muted: #555;
+  --ghe-text-muted: var(--ifm-color-emphasis-500, #555);
   --ghe-accent-color: var(--ifm-color-primary, #D35F5F);
-  --ghe-hover-bg: var(--ifm-hover-overlay, #1a1830);
+  --ghe-hover-bg: var(--ifm-hover-overlay, rgba(0, 0, 0, 0.05));
+  --ghe-error-border: var(--ifm-color-danger-dark, #3a2020);
   --ghe-font-mono: var(--ifm-font-family-monospace, 'JetBrains Mono', 'Consolas', monospace);
 }
 
@@ -99,8 +100,8 @@
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  background: #fff;
-  color: #000;
+  background: var(--ghe-text-primary);
+  color: var(--ghe-bg-primary);
   border: none;
   border-radius: 8px;
   padding: 0.75rem 1.5rem;
@@ -457,7 +458,7 @@
 .proposeButton {
   background: var(--ghe-accent-color);
   border: none;
-  color: #fff;
+  color: var(--ifm-color-white, #fff);
   border-radius: 6px;
   padding: 0.5rem 1.25rem;
   font-size: 0.9rem;
@@ -523,7 +524,7 @@
   align-items: center;
   gap: 0.5rem;
   background: var(--ghe-accent-color);
-  color: #fff;
+  color: var(--ifm-color-white, #fff);
   border-radius: 8px;
   padding: 0.75rem 1.5rem;
   font-size: 0.95rem;
@@ -534,7 +535,7 @@
 
 .prLink:hover {
   opacity: 0.9;
-  color: #fff;
+  color: var(--ifm-color-white, #fff);
   text-decoration: none;
 }
 
@@ -565,7 +566,7 @@
 
 .errorCard {
   background: var(--ghe-bg-primary);
-  border: 1px solid #3a2020;
+  border: 1px solid var(--ghe-error-border);
   border-radius: 12px;
   padding: 2.5rem;
   max-width: 420px;
