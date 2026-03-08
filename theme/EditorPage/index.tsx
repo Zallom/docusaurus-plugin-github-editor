@@ -36,15 +36,14 @@ function EditorExitBar() {
   const history = useHistory();
   const location = useLocation();
   const {i18n} = useDocusaurusContext();
-  const docsVersion = useDocsVersion();
-  const {defaultLocale} = usePluginData(PLUGIN_NAME) as EditorGlobalData;
+  const {defaultLocale, docsRouteBasePath} = usePluginData(PLUGIN_NAME) as EditorGlobalData;
   const currentLocale = i18n.currentLocale;
 
   const params = new URLSearchParams(location.search);
   const source = params.get('source');
 
   const localePrefix = currentLocale !== defaultLocale ? `/${i18n.localeConfigs[currentLocale]?.path ?? currentLocale}` : '';
-  const base = docsVersion.path || '';
+  const base = docsRouteBasePath ? `/${docsRouteBasePath}` : '';
 
   let docUrl: string;
   if (source) {
@@ -74,6 +73,126 @@ function EditorExitBar() {
   );
 }
 
+function formatSlugLabel(slug: string): string {
+  const last = slug.split('/').pop() || slug;
+  return last
+    .replace(/[-_]/g, ' ')
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function formatSlugCategory(slug: string): string {
+  const parts = slug.split('/');
+  if (parts.length <= 1) return '';
+  return parts.slice(0, -1).map((p) =>
+    p.replace(/[-_]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+  ).join(' › ');
+}
+
+function ContributeLanding({sourceMap, onSelectSource}: {
+  sourceMap: Record<string, string>;
+  onSelectSource: (source: string) => void;
+}) {
+  const [search, setSearch] = useState('');
+
+  const allPages = Object.entries(sourceMap)
+    .filter(([slug]) => {
+      const lower = slug.toLowerCase();
+      return lower !== 'readme'
+        && lower !== 'edit'
+        && !lower.startsWith('.')
+        && !lower.startsWith('_')
+        && !lower.includes('/.')
+        && !lower.includes('/_')
+        && !slug.endsWith('/index')
+;
+    })
+    .map(([slug, ext]) => ({slug, ext, source: `${slug}.${ext}`}));
+
+  // Pick a stable random set of featured pages (seeded by day)
+  const featured = (() => {
+    const day = Math.floor(Date.now() / 86400000);
+    const shuffled = [...allPages].sort((a, b) => {
+      const ha = ((day * 2654435761 + a.slug.length * 31) ^ a.slug.charCodeAt(0)) >>> 0;
+      const hb = ((day * 2654435761 + b.slug.length * 31) ^ b.slug.charCodeAt(0)) >>> 0;
+      return ha - hb;
+    });
+    return shuffled.slice(0, 6);
+  })();
+
+  const searchLower = search.toLowerCase();
+  const filtered = search
+    ? allPages.filter((p) => p.slug.toLowerCase().includes(searchLower))
+    : [];
+
+  return (
+    <div className={styles.contributeLanding}>
+      <div className={styles.contributeHeader}>
+        <div className={styles.contributeIcon}>✏️</div>
+        <h1 className={styles.contributeTitle}>
+          <Translate id="editor.contribute.title">Contribute to the wiki</Translate>
+        </h1>
+        <p className={styles.contributeDescription}>
+          <Translate id="editor.contribute.description">
+            Help improve the documentation by editing existing pages. Choose a page below or search for one.
+          </Translate>
+        </p>
+      </div>
+
+      <div className={styles.contributeSearch}>
+        <input
+          type="text"
+          className={styles.contributeSearchInput}
+          placeholder={translate({id: 'editor.contribute.searchPlaceholder', message: 'Search for a page...'})}
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+      </div>
+
+      {search ? (
+        <div className={styles.contributeGrid}>
+          {filtered.length === 0 && (
+            <p className={styles.contributeNoResults}>
+              <Translate id="editor.contribute.noResults">No pages found.</Translate>
+            </p>
+          )}
+          {filtered.slice(0, 12).map((p) => (
+            <button
+              key={p.slug}
+              className={styles.contributeCard}
+              onClick={() => onSelectSource(p.source)}
+              type="button">
+              <span className={styles.contributeCardTitle}>{formatSlugLabel(p.slug)}</span>
+              {formatSlugCategory(p.slug) && (
+                <span className={styles.contributeCardCategory}>{formatSlugCategory(p.slug)}</span>
+              )}
+            </button>
+          ))}
+        </div>
+      ) : (
+        <>
+          <h2 className={styles.contributeSectionTitle}>
+            <Translate id="editor.contribute.featured">Suggested pages</Translate>
+          </h2>
+          <div className={styles.contributeGrid}>
+            {featured.map((p) => (
+              <button
+                key={p.slug}
+                className={styles.contributeCard}
+                onClick={() => onSelectSource(p.source)}
+                type="button">
+                <span className={styles.contributeCardTitle}>{formatSlugLabel(p.slug)}</span>
+                {formatSlugCategory(p.slug) && (
+                  <span className={styles.contributeCardCategory}>{formatSlugCategory(p.slug)}</span>
+                )}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 function EditorInner() {
   const {token, user, isLoading, login, handleOAuthCallback} = useAuth();
   const location = useLocation();
@@ -81,9 +200,10 @@ function EditorInner() {
   const {i18n} = useDocusaurusContext();
   const docsVersion = useDocsVersion();
   const globalData = usePluginData(PLUGIN_NAME) as EditorGlobalData;
-  const {sourceMaps, defaultLocale, logoSrc, versionLabels, repoDocsPath} = globalData;
+  const {sourceMaps, defaultLocale, logoSrc, versionLabels, repoDocsPath, docsRouteBasePath} = globalData;
   const currentLocale = i18n.currentLocale;
   const version = docsVersion.version;
+  const docsBasePath = docsRouteBasePath ? `/${docsRouteBasePath}` : '';
   const [oauthProcessing, setOAuthProcessing] = useState(false);
   const [source, setSource] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -104,8 +224,8 @@ function EditorInner() {
       if (localePrefix && slug.startsWith(localePrefix)) {
         slug = slug.slice(localePrefix.length);
       }
-      if (docsVersion.path && slug.startsWith(docsVersion.path)) {
-        slug = slug.slice(docsVersion.path.length);
+      if (docsBasePath && slug.startsWith(docsBasePath)) {
+        slug = slug.slice(docsBasePath.length);
       }
       slug = slug.replace(/^\/+|\/+$/g, '');
 
@@ -136,7 +256,7 @@ function EditorInner() {
 
     document.addEventListener('click', handleClick, true);
     return () => document.removeEventListener('click', handleClick, true);
-  }, [version, sourceMaps, docsVersion.path, location.pathname, history, currentLocale, i18n.localeConfigs, defaultLocale]);
+  }, [version, sourceMaps, docsBasePath, location.pathname, history, currentLocale, i18n.localeConfigs, defaultLocale]);
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -210,23 +330,15 @@ function EditorInner() {
   }
 
   if (!source || !filePath) {
+    const sourceMap = sourceMaps?.[version] ?? {};
     return (
-      <div className={styles.centeredMessage}>
-        <div className={styles.errorCard}>
-          <div className={styles.errorTitle}>
-            <Translate id="editor.error.noSource">
-              No file specified
-            </Translate>
-          </div>
-          <div className={styles.errorMessage}>
-            <Translate
-              id="editor.error.noSource.description"
-              description="No source file specified">
-              Use the &quot;Edit this page&quot; link from a documentation page.
-            </Translate>
-          </div>
-        </div>
-      </div>
+      <ContributeLanding
+        sourceMap={sourceMap}
+        onSelectSource={(s) => {
+          setSource(s);
+          history.push(`${location.pathname}?source=${encodeURIComponent(s)}`);
+        }}
+      />
     );
   }
 

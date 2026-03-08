@@ -43,6 +43,18 @@ export default {
 };
 ```
 
+#### Docs served at a custom route (e.g. `/wiki`)
+
+```ts
+{
+  docsPath: 'wiki',               // local directory
+  docsRouteBasePath: 'wiki',      // route prefix
+  repoDocsPath: '',               // files are at the repo root (separate repo)
+}
+```
+
+The plugin automatically generates an `edit.mdx` page in your docs directory (and versioned docs if applicable). You should add `edit.mdx` to your `.gitignore` since it is regenerated on every build.
+
 ### 2. Deploy the OAuth Worker
 
 See [`worker-template/README.md`](./worker-template/README.md) for deployment instructions.
@@ -65,6 +77,17 @@ To route the "Edit this page" link to the built-in editor instead of GitHub:
 
 ## Configuration Reference
 
+### Auto-detected options
+
+The following options are **automatically derived** from your `plugin-content-docs` config (preset or standalone plugin). You only need to set them if you want to override the detected values:
+
+- **`docsPath`** — from the docs plugin `path` option (default: `'docs'`)
+- **`docsRouteBasePath`** — from the docs plugin `routeBasePath` option (default: `''`)
+- **`versionLabels`** — derived from loaded versions at build time
+- **`versionPathPrefix`** — derived from loaded versions at build time
+
+### All options
+
 | Option | Type | Default | Description |
 |---|---|---|---|
 | `githubClientId` | `string` | **required** | GitHub OAuth App client ID |
@@ -72,14 +95,17 @@ To route the "Edit this page" link to the built-in editor instead of GitHub:
 | `repoOwner` | `string` | **required** | GitHub repository owner |
 | `repoName` | `string` | **required** | GitHub repository name |
 | `baseBranch` | `string` | **required** | Base branch for PRs |
+| `docsPath` | `string` | *auto-detected* | Local path to the docs directory |
+| `repoDocsPath` | `string` | same as `docsPath` | Path prefix for docs files in the GitHub repo. Set to `''` if files are at the repo root (e.g. when docs live in a separate repo) |
+| `docsRouteBasePath` | `string` | *auto-detected* | Route base path for the docs plugin (e.g. `'wiki'` if docs are served at `/wiki`) |
 | `defaultLocale` | `string` | `'en'` | Default locale of the docs site |
-| `editRoute` | `string` | `'/edit'` | Route path for the editor page |
+| `editRoute` | `string` | `'/edit'` | Route path for the editor page (appended to `docsRouteBasePath`) |
 | `editPageTitle` | `string` | `'Edit documentation'` | Title of the generated edit.mdx page |
 | `editPageSidebar` | `string` | `'sidebar'` | Sidebar ID for the edit page |
 | `logoSrc` | `string` | `''` | Logo image URL displayed on the sign-in card |
-| `versionLabels` | `Record<string, string>` | `{}` | Human-readable labels for version badges |
+| `versionLabels` | `Record<string, string>` | *auto-detected* | Human-readable labels for version badges |
 | `enableEditThisPage` | `boolean` | `false` | Override the default "Edit this page" link |
-| `versionPathPrefix` | `Record<string, string>` | `{}` | URL path prefix per version for the edit route |
+| `versionPathPrefix` | `Record<string, string>` | *auto-detected* | URL path prefix per version for the edit route |
 | `editUrlBranch` | `string` | `'main'` | Branch name used in the editUrl pattern |
 | `prTitlePrefix` | `string` | `'docs: '` | Prefix for PR titles |
 | `prBodyTemplate` | `string` | *(see below)* | PR body template with `{{filePath}}` and `{{commitMessage}}` placeholders |
@@ -112,14 +138,27 @@ npx docusaurus swizzle docusaurus-plugin-github-editor EditorMdxComponents
 Then edit the swizzled file to add your components:
 
 ```tsx
-import {useEditorMdxComponents} from 'docusaurus-plugin-github-editor/theme/EditorMdxComponents';
+// src/theme/EditorMdxComponents/index.tsx
+import Admonition from '@theme/Admonition';
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+import Details from '@theme/Details';
+import CodeBlock from '@theme/CodeBlock';
 import MyCustomComponent from '@site/src/components/MyCustomComponent';
 
-export function useEditorMdxComponents(extra = {}) {
-  return useEditorMdxComponents({
+export function useEditorMdxComponents(extra: Record<string, any> = {}): Record<string, any> {
+  return {
+    // Default components
+    Admonition,
+    admonition: Admonition,
+    Tabs,
+    TabItem,
+    Details,
+    CodeBlock,
+    // Your custom components
     MyCustomComponent,
     ...extra,
-  });
+  };
 }
 ```
 
@@ -137,17 +176,20 @@ The EditThisPage component is automatically provided. Enable it with `enableEdit
 
 ## CSS Theming
 
-The editor uses CSS custom properties that map to Docusaurus Infima variables:
+The editor uses CSS custom properties that automatically map to Docusaurus Infima variables. The editor adapts to any Docusaurus theme out of the box.
 
 ```css
 :root {
   --ghe-bg-primary: var(--ifm-background-color);
   --ghe-bg-secondary: var(--ifm-background-surface-color);
+  --ghe-bg-tertiary: var(--ifm-color-emphasis-100);
   --ghe-border-color: var(--ifm-toc-border-color);
   --ghe-text-primary: var(--ifm-color-content);
   --ghe-text-secondary: var(--ifm-color-content-secondary);
+  --ghe-text-muted: var(--ifm-color-emphasis-500);
   --ghe-accent-color: var(--ifm-color-primary);
   --ghe-hover-bg: var(--ifm-hover-overlay);
+  --ghe-error-border: var(--ifm-color-danger-dark);
   --ghe-font-mono: var(--ifm-font-family-monospace);
 }
 ```

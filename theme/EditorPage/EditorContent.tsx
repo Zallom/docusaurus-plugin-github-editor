@@ -7,8 +7,8 @@ import * as jsxRuntime from 'react/jsx-runtime';
 import remarkGfm from 'remark-gfm';
 import remarkDirective from 'remark-directive';
 import {visit} from 'unist-util-visit';
-import {EditorView, keymap, lineNumbers, highlightActiveLine, drawSelection} from '@codemirror/view';
-import {EditorState} from '@codemirror/state';
+import {EditorView, keymap, lineNumbers, highlightActiveLine, drawSelection, Decoration, WidgetType, type DecorationSet} from '@codemirror/view';
+import {EditorState, StateField, type Range} from '@codemirror/state';
 import {markdown, markdownLanguage} from '@codemirror/lang-markdown';
 import {languages} from '@codemirror/language-data';
 import {defaultKeymap, history as cmHistory, historyKeymap} from '@codemirror/commands';
@@ -22,6 +22,93 @@ import type {EditorGlobalData} from '../../src/types';
 import styles from './styles.module.css';
 
 const PLUGIN_NAME = 'docusaurus-plugin-github-editor';
+
+// Image placeholder regex: ![alt](url) or <img ... />
+const IMAGE_LINE_RE = /!\[(.*?)\]\((.+?)\)|<img\s[^>]*src=["']([^"']+)["'][^>]*\/?>/;
+
+class ImagePlaceholderWidget extends WidgetType {
+  private readonly src: string;
+  private readonly alt: string;
+  private view: EditorView | null = null;
+
+  constructor(src: string, alt: string) {
+    super();
+    this.src = src;
+    this.alt = alt;
+  }
+
+  eq(other: ImagePlaceholderWidget) {
+    return this.src === other.src;
+  }
+
+  toDOM(view: EditorView) {
+    this.view = view;
+    const wrapper = document.createElement('div');
+    wrapper.style.cssText = 'border-radius:6px;margin:4px 0;padding:6px;background:var(--ghe-hover-bg);overflow:hidden;';
+
+    const img = document.createElement('img');
+    img.src = this.src;
+    img.alt = this.alt;
+    img.style.cssText = 'max-width:100%;display:block;border-radius:4px;height:auto;';
+    img.loading = 'lazy';
+    img.onload = () => {
+      this.view?.requestMeasure();
+    };
+    img.onerror = () => {
+      wrapper.style.display = 'none';
+      this.view?.requestMeasure();
+    };
+
+    wrapper.appendChild(img);
+    return wrapper;
+  }
+
+  get estimatedHeight() {
+    return 20;
+  }
+
+  destroy() {
+    this.view = null;
+  }
+}
+
+function buildImageDecorations(state: EditorState): DecorationSet {
+  const widgets: Range<Decoration>[] = [];
+  const doc = state.doc;
+  for (let i = 1; i <= doc.lines; i++) {
+    const line = doc.line(i);
+    const match = IMAGE_LINE_RE.exec(line.text);
+    if (match) {
+      const alt = match[1] || '';
+      const src = match[2] || match[3];
+      // Skip data URIs and relative paths that won't resolve
+      if (src && (src.startsWith('http') || src.startsWith('/') || src.startsWith('data:'))) {
+        const deco = Decoration.widget({
+          widget: new ImagePlaceholderWidget(src, alt),
+          block: true,
+          side: 1,
+        });
+        widgets.push(deco.range(line.to));
+      }
+    }
+  }
+  return Decoration.set(widgets);
+}
+
+const imagePreviewField = StateField.define<DecorationSet>({
+  create(state) {
+    return buildImageDecorations(state);
+  },
+  update(decos, tr) {
+    if (tr.docChanged) {
+      return buildImageDecorations(tr.state);
+    }
+    return decos;
+  },
+  provide(field) {
+    return EditorView.decorations.from(field);
+  },
+});
 
 // Remark plugin: transform :::type container directives into admonition JSX
 function remarkAdmonitions() {
@@ -60,17 +147,40 @@ function prepareMdxSource(raw: string): string {
   const body = content
     .replace(/^---\n[\s\S]*?\n---\n?/, '')
     .replace(/^import\s+.*$/gm, '')
+    .replace(/^export\s+(default\s+)?function\s+\w+\s*\([^)]*\)\s*\{[\s\S]*?^}/gm, '')
     .replace(/^export\s+.*$/gm, '')
     .replace(/\s*\{#[\w-]+\}/g, '');
 
   return titleHeading + body;
 }
 
+// Compute the height of the frontmatter block in the CodeMirror editor
+function useFrontmatterHeight(source: string, editorView: EditorView | null): number {
+  const [height, setHeight] = useState(0);
+
+  useEffect(() => {
+    if (!editorView) { setHeight(0); return; }
+    const doc = editorView.state.doc;
+    const docStr = doc.toString();
+    const fmMatch = docStr.match(/^---\n[\s\S]*?\n---\n?/);
+    if (!fmMatch) { setHeight(0); return; }
+
+    const fmEndOffset = fmMatch[0].length;
+    const fmEndLine = doc.lineAt(Math.min(fmEndOffset, doc.length));
+    const block = editorView.lineBlockAt(fmEndLine.from);
+    setHeight(block.top + block.height);
+  }, [source, editorView]);
+
+  return height;
+}
+
 // MDX live preview component with debounced compilation
-function MdxPreview({source, components}: {source: string; components: Record<string, any>}) {
+function MdxPreview({source, components, frontmatterHeight}: {source: string; components: Record<string, any>; frontmatterHeight: number}) {
   const [MdxContent, setMdxContent] = useState<React.ComponentType<any> | null>(null);
   const [error, setError] = useState<string | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [titleHeight, setTitleHeight] = useState(0);
 
   useEffect(() => {
     if (timerRef.current) clearTimeout(timerRef.current);
@@ -100,18 +210,33 @@ function MdxPreview({source, components}: {source: string; components: Record<st
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [source]);
 
+  // Measure the H1 title height after render to subtract it from the spacer
+  useEffect(() => {
+    if (!contentRef.current) return;
+    const h1 = contentRef.current.querySelector('h1');
+    if (h1) {
+      const style = getComputedStyle(h1);
+      setTitleHeight(h1.offsetHeight + parseFloat(style.marginTop) + parseFloat(style.marginBottom));
+    } else {
+      setTitleHeight(0);
+    }
+  });
+
+  const spacerHeight = Math.max(0, frontmatterHeight - titleHeight);
+  const spacer = spacerHeight > 0 ? <div style={{height: spacerHeight}} /> : null;
+
   if (error && !MdxContent) {
-    return <div style={{color: 'var(--ghe-accent-color, #D35F5F)', padding: '1rem', fontFamily: 'monospace', fontSize: '0.85rem'}}>{error}</div>;
+    return <>{spacer}<div style={{color: 'var(--ghe-accent-color, #D35F5F)', padding: '1rem', fontFamily: 'monospace', fontSize: '0.85rem'}}>{error}</div></>;
   }
 
   if (!MdxContent) {
-    return <div style={{color: 'var(--ghe-text-muted, #555)'}}>Compiling...</div>;
+    return <>{spacer}<div style={{color: 'var(--ghe-text-muted, #555)'}}>Compiling...</div></>;
   }
 
   try {
-    return <MdxContent components={components} />;
+    return <div ref={contentRef}>{spacer}<MdxContent components={components} /></div>;
   } catch {
-    return <div style={{color: 'var(--ghe-accent-color, #D35F5F)', padding: '1rem'}}>Render error</div>;
+    return <>{spacer}<div style={{color: 'var(--ghe-accent-color, #D35F5F)', padding: '1rem'}}>Render error</div></>;
   }
 }
 
@@ -392,6 +517,7 @@ export default function EditorContent({source, filePath, version, versionLabels}
   const [error, setError] = useState<string | null>(null);
   const [prResult, setPrResult] = useState<{prUrl: string; prNumber: number} | null>(null);
 
+  const frontmatterHeight = useFrontmatterHeight(content, editorView);
   const hasChanges = content !== originalContent;
 
   // Warn before leaving with unsaved changes
@@ -464,6 +590,7 @@ export default function EditorContent({source, filePath, version, versionLabels}
         cmHistory(),
         highlightSelectionMatches(),
         EditorView.lineWrapping,
+        imagePreviewField,
         markdown({base: markdownLanguage, codeLanguages: languages}),
         editorTheme,
         syntaxHighlighting(syntaxTheme),
@@ -478,55 +605,6 @@ export default function EditorContent({source, filePath, version, versionLabels}
           if (update.docChanged) {
             setContent(update.state.doc.toString());
           }
-        }),
-        EditorView.domEventHandlers({
-          scroll: () => {
-            const preview = previewRef.current;
-            const cmScroller = editorRef.current?.querySelector('.cm-scroller') as HTMLElement | null;
-            const v = viewRef.current;
-            if (!preview || !cmScroller || !v) return;
-
-            const editorScrollTop = cmScroller.scrollTop;
-            const editorScrollMax = cmScroller.scrollHeight - cmScroller.clientHeight;
-            const previewScrollMax = preview.scrollHeight - preview.clientHeight;
-            if (editorScrollMax <= 0 || previewScrollMax <= 0) return;
-
-            const editorAnchors: number[] = [0];
-            const doc = v.state.doc;
-            for (let i = 1; i <= doc.lines; i++) {
-              const line = doc.line(i);
-              if (/^#{1,6}\s/.test(line.text)) {
-                editorAnchors.push(v.lineBlockAt(line.from).top);
-              }
-            }
-            editorAnchors.push(editorScrollMax);
-
-            const previewAnchors: number[] = [0];
-            const previewRect = preview.getBoundingClientRect();
-            const headings = preview.querySelectorAll('h1, h2, h3, h4, h5, h6');
-            const hasTitle = /^---\n[\s\S]*?\ntitle:\s*.+/m.test(doc.toString());
-            const skip = hasTitle && headings.length > 0 && headings[0].tagName === 'H1' ? 1 : 0;
-            for (let i = skip; i < headings.length; i++) {
-              const el = headings[i] as HTMLElement;
-              previewAnchors.push(el.getBoundingClientRect().top - previewRect.top + preview.scrollTop);
-            }
-            previewAnchors.push(previewScrollMax);
-
-            const count = Math.min(editorAnchors.length, previewAnchors.length);
-            const eA = editorAnchors.slice(0, count - 1).concat(editorScrollMax);
-            const pA = previewAnchors.slice(0, count - 1).concat(previewScrollMax);
-
-            let seg = 0;
-            for (let i = 1; i < eA.length; i++) {
-              if (editorScrollTop < eA[i]) break;
-              seg = i;
-            }
-            if (seg >= eA.length - 1) seg = eA.length - 2;
-
-            const range = eA[seg + 1] - eA[seg];
-            const t = range > 0 ? Math.max(0, Math.min(1, (editorScrollTop - eA[seg]) / range)) : 0;
-            preview.scrollTop = pA[seg] + t * (pA[seg + 1] - pA[seg]);
-          },
         }),
       ],
     });
@@ -685,7 +763,7 @@ export default function EditorContent({source, filePath, version, versionLabels}
           <div className={styles.previewLabel}>
             <Translate id="editor.preview.title">Preview</Translate>
           </div>
-          <MdxPreview source={content} components={mdxComponents} />
+          <MdxPreview source={content} components={mdxComponents} frontmatterHeight={frontmatterHeight} />
         </div>
       </div>
 
