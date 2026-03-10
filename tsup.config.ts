@@ -9,5 +9,8 @@ export default defineConfig({
   external: [
     '@docusaurus/types',
     '@docusaurus/utils-validation',
+    'babel-loader',
+    '@babel/preset-typescript',
+    '@babel/preset-react',
   ],
 });

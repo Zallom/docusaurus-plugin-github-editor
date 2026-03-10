@@ -116,6 +116,34 @@ export default function pluginGithubEditor(
       return path.resolve(__dirname, '..', 'theme');
     },
 
+    configureWebpack() {
+      // Docusaurus only transpiles .js/.jsx in node_modules by default.
+      // Our theme ships TypeScript source files, so we need to tell webpack
+      // to include them in the babel/swc transpilation pipeline.
+      const themePath = path.resolve(__dirname, '..', 'theme');
+      return {
+        module: {
+          rules: [
+            {
+              test: /\.tsx?$/,
+              include: [themePath],
+              use: [
+                {
+                  loader: require.resolve('babel-loader'),
+                  options: {
+                    presets: [
+                      require.resolve('@babel/preset-typescript'),
+                      require.resolve('@babel/preset-react'),
+                    ],
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      };
+    },
+
     async contentLoaded({actions}) {
       const {setGlobalData} = actions;
 
