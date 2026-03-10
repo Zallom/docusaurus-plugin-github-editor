@@ -2,13 +2,24 @@
   "name": "docusaurus-plugin-github-editor",
   "version": "1.0.0",
   "description": "A Docusaurus v3 plugin that adds a full-featured documentation editor with GitHub OAuth, CodeMirror, live MDX preview, and automatic PR creation.",
+  "author": "Zallom <matthias@fca.gg>",
+  "license": "MIT",
+  "homepage": "https://github.com/raidprotect/docusaurus-plugin-github-editor#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/raidprotect/docusaurus-plugin-github-editor.git"
+  },
+  "bugs": {
+    "url": "https://github.com/raidprotect/docusaurus-plugin-github-editor/issues"
+  },
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
   "files": [
     "lib",
     "theme",
     "theme.d.ts",
-    "worker-template"
+    "worker-template",
+    "!worker-template/node_modules"
   ],
   "scripts": {
     "build": "tsup",
@@ -21,19 +32,20 @@
     "github",
     "editor",
     "markdown",
-    "codemirror",
     "mdx",
-    "documentation"
+    "codemirror",
+    "documentation",
+    "oauth",
+    "pull-request",
+    "live-preview"
   ],
-  "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/Zallom/docusaurus-plugin-github-editor.git"
+  "engines": {
+    "node": ">=18.0.0"
   },
   "peerDependencies": {
     "@docusaurus/core": "^3.0.0",
-    "react": "^18.0.0",
-    "react-dom": "^18.0.0"
+    "react": "^18.0.0 || ^19.0.0",
+    "react-dom": "^18.0.0 || ^19.0.0"
   },
   "dependencies": {
     "@codemirror/commands": "^6.10.2",

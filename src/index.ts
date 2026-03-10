@@ -1,71 +1,14 @@
 import type {LoadContext, Plugin} from '@docusaurus/types';
 import type {PluginOptions, EditorGlobalData} from './types';
 import {validateOptions} from './options';
+import translations from './translations';
 import path from 'path';
 import fs from 'fs';
 
 const PLUGIN_NAME = 'docusaurus-plugin-github-editor';
 
-const translations: Record<string, Record<string, string>> = {
-  en: {
-    'editor.signIn.title': 'Edit documentation',
-    'editor.signIn.description': 'Sign in with GitHub to suggest changes to the documentation.',
-    'editor.signIn.button': 'Sign in with GitHub',
-    'editor.toolbar.propose': 'Propose changes',
-    'editor.toolbar.cancel': 'Cancel',
-    'editor.toolbar.commitPlaceholder': 'Describe your changes...',
-    'editor.success.title': 'Changes proposed!',
-    'editor.success.description': 'Your Pull Request has been successfully created. The team will review it shortly.',
-    'editor.success.viewPr': 'View Pull Request',
-    'editor.success.backToDocs': 'Back to documentation',
-    'editor.error.noSource': 'No file specified.',
-    'editor.error.noSource.description': 'Use the "Edit this page" link from a documentation page.',
-    'editor.error.notFound': 'This file was not found in the repository.',
-    'editor.error.sessionExpired': 'Your session has expired. Please sign in again.',
-    'editor.error.noPermission': 'You do not have permission to propose changes.',
-    'editor.error.conflict': 'The file has been modified in the meantime. Reload the page to get the latest version.',
-    'editor.error.generic': 'An error occurred. Please try again.',
-    'editor.loading': 'Loading...',
-    'editor.authenticating': 'Authenticating...',
-    'editor.exitBar.backToDocs': 'Back to documentation',
-    'editor.header.logout': 'Log out',
-    'editor.preview.title': 'Preview',
-    'editor.contribute.title': 'Contribute to the wiki',
-    'editor.contribute.description': 'Help improve the documentation by editing existing pages. Choose a page below or search for one.',
-    'editor.contribute.searchPlaceholder': 'Search for a page...',
-    'editor.contribute.featured': 'Suggested pages',
-    'editor.contribute.noResults': 'No pages found.',
-  },
-  fr: {
-    'editor.signIn.title': 'Modifier la documentation',
-    'editor.signIn.description': 'Connectez-vous avec GitHub pour proposer des modifications à la documentation.',
-    'editor.signIn.button': 'Se connecter avec GitHub',
-    'editor.toolbar.propose': 'Proposer les modifications',
-    'editor.toolbar.cancel': 'Annuler',
-    'editor.toolbar.commitPlaceholder': 'Décrivez vos modifications...',
-    'editor.success.title': 'Modifications proposées !',
-    'editor.success.description': 'Votre Pull Request a été créée avec succès. L\'équipe la examinera sous peu.',
-    'editor.success.viewPr': 'Voir la Pull Request',
-    'editor.success.backToDocs': 'Retour à la documentation',
-    'editor.error.noSource': 'Aucun fichier spécifié.',
-    'editor.error.noSource.description': 'Utilisez le lien « Modifier cette page » depuis une page de documentation.',
-    'editor.error.notFound': 'Ce fichier n\'a pas été trouvé dans le dépôt.',
-    'editor.error.sessionExpired': 'Votre session a expiré. Veuillez vous reconnecter.',
-    'editor.error.noPermission': 'Vous n\'avez pas la permission de proposer des modifications.',
-    'editor.error.conflict': 'Le fichier a été modifié entre-temps. Rechargez la page pour obtenir la dernière version.',
-    'editor.error.generic': 'Une erreur est survenue. Veuillez réessayer.',
-    'editor.loading': 'Chargement...',
-    'editor.authenticating': 'Authentification...',
-    'editor.exitBar.backToDocs': 'Retour à la documentation',
-    'editor.header.logout': 'Déconnexion',
-    'editor.preview.title': 'Aperçu',
-    'editor.contribute.title': 'Contribuer au wiki',
-    'editor.contribute.description': 'Aidez à améliorer la documentation en modifiant les pages existantes. Choisissez une page ci-dessous ou recherchez-en une.',
-    'editor.contribute.searchPlaceholder': 'Rechercher une page...',
-    'editor.contribute.featured': 'Pages suggérées',
-    'editor.contribute.noResults': 'Aucune page trouvée.',
-  },
-};
+const DEFAULT_PR_BODY_TEMPLATE =
+  '## Documentation change\n\n**Modified file:** `{{filePath}}`\n\n{{commitMessage}}\n\n---\n*Proposed via the built-in documentation editor.*';
 
 /**
  * Extract docs plugin options from the Docusaurus site config (presets + plugins).
@@ -74,14 +17,12 @@ const translations: Record<string, Record<string, string>> = {
 function extractDocsPluginOptions(siteConfig: any): Record<string, any> {
   const candidates: any[] = [];
 
-  // Look in presets (e.g. ['classic', { docs: { ... } }])
   for (const preset of siteConfig.presets ?? []) {
     if (Array.isArray(preset) && preset[1]?.docs) {
       candidates.push(preset[1].docs);
     }
   }
 
-  // Look in standalone plugins
   for (const plugin of siteConfig.plugins ?? []) {
     const name = Array.isArray(plugin) ? plugin[0] : plugin;
     const opts = Array.isArray(plugin) ? plugin[1] : {};
@@ -152,7 +93,6 @@ export default function pluginGithubEditor(
   context: LoadContext,
   options: PluginOptions,
 ): Plugin<undefined> {
-  // Auto-derive options from the docs plugin config when not explicitly set
   const docsPluginOpts = extractDocsPluginOptions(context.siteConfig);
   const docsPath = options.docsPath ?? (docsPluginOpts.path?.replace(/^\.\//, '') ?? 'docs');
   const docsRouteBasePath = (options.docsRouteBasePath ?? docsPluginOpts.routeBasePath ?? '').replace(/^\/|\/$/g, '');
@@ -210,8 +150,7 @@ export default function pluginGithubEditor(
         versionPathPrefix: options.versionPathPrefix ?? {},
         editUrlBranch,
         prTitlePrefix: options.prTitlePrefix ?? 'docs: ',
-        prBodyTemplate: options.prBodyTemplate ??
-          '## Documentation change\n\n**Modified file:** `{{filePath}}`\n\n{{commitMessage}}\n\n---\n*Proposed via the built-in documentation editor.*',
+        prBodyTemplate: options.prBodyTemplate ?? DEFAULT_PR_BODY_TEMPLATE,
         storageKeyPrefix: options.storageKeyPrefix ?? 'gh-editor',
       };
 
@@ -219,7 +158,6 @@ export default function pluginGithubEditor(
     },
 
     async allContentLoaded({allContent, actions}: any) {
-      // Auto-derive versionLabels and versionPathPrefix from docusaurus-plugin-content-docs
       const autoVersionLabels: Record<string, string> = {};
       const autoVersionPathPrefix: Record<string, string> = {};
       try {
@@ -230,7 +168,6 @@ export default function pluginGithubEditor(
         for (const v of loadedVersions) {
           autoVersionLabels[v.versionName] = v.label;
           let segment = v.path.replace(/^\/+/, '').replace(/\/+$/, '');
-          // Strip the docsRouteBasePath prefix to avoid duplication (e.g. /wiki/wiki)
           if (docsBase && segment.startsWith(docsBase)) {
             segment = segment.slice(docsBase.length).replace(/^\/+/, '');
           }
@@ -240,7 +177,6 @@ export default function pluginGithubEditor(
         // Docs plugin not available — skip
       }
 
-      // Only update if we actually found version data
       if (Object.keys(autoVersionLabels).length > 0) {
         const userLabels = options.versionLabels ?? {};
         const userPrefixes = options.versionPathPrefix ?? {};
