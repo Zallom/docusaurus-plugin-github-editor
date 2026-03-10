@@ -155,7 +155,7 @@ export default function pluginGithubEditor(
   // Auto-derive options from the docs plugin config when not explicitly set
   const docsPluginOpts = extractDocsPluginOptions(context.siteConfig);
   const docsPath = options.docsPath ?? (docsPluginOpts.path?.replace(/^\.\//, '') ?? 'docs');
-  const docsRouteBasePath = options.docsRouteBasePath ?? docsPluginOpts.routeBasePath ?? '';
+  const docsRouteBasePath = (options.docsRouteBasePath ?? docsPluginOpts.routeBasePath ?? '').replace(/^\/|\/$/g, '');
   const editUrlBranch = options.editUrlBranch ?? 'main';
 
   const editMdxContent = buildEditMdxContent(

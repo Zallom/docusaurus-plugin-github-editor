@@ -8,7 +8,7 @@ import remarkGfm from 'remark-gfm';
 import remarkDirective from 'remark-directive';
 import {visit} from 'unist-util-visit';
 import {EditorView, keymap, lineNumbers, highlightActiveLine, drawSelection, Decoration, WidgetType, type DecorationSet} from '@codemirror/view';
-import {EditorState, StateField, type Range} from '@codemirror/state';
+import {EditorState, StateField, Facet, type Range} from '@codemirror/state';
 import {markdown, markdownLanguage} from '@codemirror/lang-markdown';
 import {languages} from '@codemirror/language-data';
 import {defaultKeymap, history as cmHistory, historyKeymap} from '@codemirror/commands';
@@ -22,6 +22,34 @@ import type {EditorGlobalData} from '../../src/types';
 import styles from './styles.module.css';
 
 const PLUGIN_NAME = 'docusaurus-plugin-github-editor';
+
+// Resolve a relative image path to a raw GitHub URL
+interface ImageResolverConfig {
+  filePath: string;
+  repoOwner: string;
+  repoName: string;
+  baseBranch: string;
+}
+
+const imageResolverFacet = Facet.define<ImageResolverConfig, ImageResolverConfig>({
+  combine: (values) => values[0] ?? {filePath: '', repoOwner: '', repoName: '', baseBranch: ''},
+});
+
+function resolveImageSrc(src: string, config: ImageResolverConfig): string {
+  if (!src || src.startsWith('http') || src.startsWith('data:') || src.startsWith('/')) {
+    return src;
+  }
+  const {filePath, repoOwner, repoName, baseBranch} = config;
+  // Resolve relative path against the file's directory
+  const dirParts = filePath.split('/').slice(0, -1);
+  const srcParts = src.split('/');
+  const resolved: string[] = [...dirParts];
+  for (const part of srcParts) {
+    if (part === '..') resolved.pop();
+    else if (part !== '.' && part !== '') resolved.push(part);
+  }
+  return `https://raw.githubusercontent.com/${repoOwner}/${repoName}/${baseBranch}/${resolved.join('/')}`;
+}
 
 // Image placeholder regex: ![alt](url) or <img ... />
 const IMAGE_LINE_RE = /!\[(.*?)\]\((.+?)\)|<img\s[^>]*src=["']([^"']+)["'][^>]*\/?>/;
@@ -75,14 +103,15 @@ class ImagePlaceholderWidget extends WidgetType {
 function buildImageDecorations(state: EditorState): DecorationSet {
   const widgets: Range<Decoration>[] = [];
   const doc = state.doc;
+  const config = state.facet(imageResolverFacet);
   for (let i = 1; i <= doc.lines; i++) {
     const line = doc.line(i);
     const match = IMAGE_LINE_RE.exec(line.text);
     if (match) {
       const alt = match[1] || '';
-      const src = match[2] || match[3];
-      // Skip data URIs and relative paths that won't resolve
-      if (src && (src.startsWith('http') || src.startsWith('/') || src.startsWith('data:'))) {
+      const rawSrc = match[2] || match[3];
+      if (rawSrc) {
+        const src = resolveImageSrc(rawSrc, config);
         const deco = Decoration.widget({
           widget: new ImagePlaceholderWidget(src, alt),
           block: true,
@@ -119,6 +148,24 @@ function remarkAdmonitions() {
         const data = node.data || (node.data = {});
         data.hName = 'admonition';
         data.hProperties = {type};
+      }
+    });
+  };
+}
+
+// Remark plugin: resolve relative image URLs to raw GitHub URLs
+function remarkResolveImages(config: ImageResolverConfig) {
+  return () => (tree: any) => {
+    visit(tree, (node: any) => {
+      if (node.type === 'image' && node.url) {
+        node.url = resolveImageSrc(node.url, config);
+      }
+      // Handle <img> in HTML/JSX nodes
+      if (node.type === 'html' && typeof node.value === 'string') {
+        node.value = node.value.replace(
+          /(<img\s[^>]*src=["'])([^"']+)(["'])/g,
+          (_: string, pre: string, src: string, post: string) => pre + resolveImageSrc(src, config) + post,
+        );
       }
     });
   };
@@ -175,7 +222,7 @@ function useFrontmatterHeight(source: string, editorView: EditorView | null): nu
 }
 
 // MDX live preview component with debounced compilation
-function MdxPreview({source, components, frontmatterHeight}: {source: string; components: Record<string, any>; frontmatterHeight: number}) {
+function MdxPreview({source, components, frontmatterHeight, imageConfig}: {source: string; components: Record<string, any>; frontmatterHeight: number; imageConfig: ImageResolverConfig}) {
   const [MdxContent, setMdxContent] = useState<React.ComponentType<any> | null>(null);
   const [error, setError] = useState<string | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -190,7 +237,7 @@ function MdxPreview({source, components, frontmatterHeight}: {source: string; co
         const prepared = prepareMdxSource(source);
         const {default: Content} = await evaluate(prepared, {
           ...(jsxRuntime as any),
-          remarkPlugins: [remarkGfm, remarkDirective, remarkAdmonitions],
+          remarkPlugins: [remarkGfm, remarkDirective, remarkAdmonitions, remarkResolveImages(imageConfig)],
           development: false,
         });
         setMdxContent(() => Content);
@@ -584,6 +631,7 @@ export default function EditorContent({source, filePath, version, versionLabels}
     const state = EditorState.create({
       doc: content,
       extensions: [
+        imageResolverFacet.of({filePath, repoOwner, repoName, baseBranch}),
         lineNumbers(),
         highlightActiveLine(),
         drawSelection(),
@@ -763,7 +811,7 @@ export default function EditorContent({source, filePath, version, versionLabels}
           <div className={styles.previewLabel}>
             <Translate id="editor.preview.title">Preview</Translate>
           </div>
-          <MdxPreview source={content} components={mdxComponents} frontmatterHeight={frontmatterHeight} />
+          <MdxPreview source={content} components={mdxComponents} frontmatterHeight={frontmatterHeight} imageConfig={{filePath, repoOwner, repoName, baseBranch}} />
         </div>
       </div>
 
