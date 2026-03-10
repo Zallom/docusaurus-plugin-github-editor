@@ -129,7 +129,7 @@ function ContributeLanding({sourceMap, onSelectSource}: {
       <div className={styles.contributeHeader}>
         <div className={styles.contributeIcon}>✏️</div>
         <h1 className={styles.contributeTitle}>
-          <Translate id="editor.contribute.title">Contribute to the wiki</Translate>
+          <Translate id="editor.contribute.title">Contribute to the documentation</Translate>
         </h1>
         <p className={styles.contributeDescription}>
           <Translate id="editor.contribute.description">
