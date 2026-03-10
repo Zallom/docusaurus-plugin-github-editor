@@ -131,7 +131,6 @@
   display: flex;
   flex-direction: column;
   flex: 1;
-  overflow: hidden;
   background: var(--ghe-bg-primary);
   min-height: calc(100vh - var(--ifm-navbar-height) - 120px);
   border: 1px solid var(--ghe-border-color);
@@ -218,6 +217,9 @@
   border-bottom: 1px solid var(--ghe-border-color);
   flex-shrink: 0;
   flex-wrap: wrap;
+  position: sticky;
+  top: var(--ifm-navbar-height, 3.75rem);
+  z-index: 5;
 }
 
 .formatButton {
@@ -707,6 +709,10 @@
 @media (max-width: 768px) {
   .editorPanes {
     flex-direction: column;
+  }
+
+  .editorPane {
+    border-bottom: 1px solid var(--ghe-border-color);
   }
 
   .resizer {
