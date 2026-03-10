@@ -319,8 +319,16 @@
   min-width: 0;
 }
 
-.editorPane:first-child {
-  border-right: 1px solid var(--ghe-border-color);
+.resizer {
+  flex: 0 0 5px;
+  background: var(--ghe-border-color);
+  cursor: col-resize;
+  transition: background 0.15s;
+}
+
+.resizer:hover,
+.resizer:active {
+  background: var(--ghe-accent-color);
 }
 
 .previewPane {
@@ -701,9 +709,8 @@
     flex-direction: column;
   }
 
-  .editorPane:first-child {
-    border-right: none;
-    border-bottom: 1px solid var(--ghe-border-color);
+  .resizer {
+    display: none;
   }
 
   .previewLabel {

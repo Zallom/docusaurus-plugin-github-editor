@@ -4,3 +4,4 @@ tsup.config.ts
 .gitignore
 .DS_Store
 worker-template/node_modules/
+*.tgz

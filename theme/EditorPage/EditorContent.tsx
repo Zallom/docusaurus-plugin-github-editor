@@ -563,6 +563,37 @@ export default function EditorContent({source, filePath, version, versionLabels}
   const [isLoadingFile, setIsLoadingFile] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [prResult, setPrResult] = useState<{prUrl: string; prNumber: number} | null>(null);
+  const [splitRatio, setSplitRatio] = useState(50);
+  const panesRef = useRef<HTMLDivElement>(null);
+
+  const handleResizeStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    const panes = panesRef.current;
+    if (!panes) return;
+
+    const startX = e.clientX;
+    const startRatio = splitRatio;
+    const panesWidth = panes.getBoundingClientRect().width;
+
+    const onMouseMove = (ev: MouseEvent) => {
+      const delta = ev.clientX - startX;
+      const deltaPercent = (delta / panesWidth) * 100;
+      const newRatio = Math.min(80, Math.max(20, startRatio + deltaPercent));
+      setSplitRatio(newRatio);
+    };
+
+    const onMouseUp = () => {
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+  }, [splitRatio]);
 
   const frontmatterHeight = useFrontmatterHeight(content, editorView);
   const hasChanges = content !== originalContent;
@@ -805,9 +836,14 @@ export default function EditorContent({source, filePath, version, versionLabels}
       <MarkdownToolbar view={editorView} />
 
       {/* Editor + Preview */}
-      <div className={styles.editorPanes}>
-        <div className={styles.editorPane} ref={editorRef} />
-        <div className={styles.previewPane} ref={previewRef}>
+      <div className={styles.editorPanes} ref={panesRef}>
+        <div className={styles.editorPane} ref={editorRef} style={splitRatio !== 50 ? {flex: `0 0 ${splitRatio}%`} : undefined} />
+        <div
+          className={styles.resizer}
+          onMouseDown={handleResizeStart}
+          onDoubleClick={() => setSplitRatio(50)}
+        />
+        <div className={styles.previewPane} ref={previewRef} style={splitRatio !== 50 ? {flex: `0 0 ${100 - splitRatio}%`} : undefined}>
           <div className={styles.previewLabel}>
             <Translate id="editor.preview.title">Preview</Translate>
           </div>
