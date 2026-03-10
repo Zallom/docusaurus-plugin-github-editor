@@ -1,4 +1,4 @@
-import type {FileContent} from '../../src/types';
+import type {FileContent} from '../types';
 
 const API_BASE = 'https://api.github.com';
 

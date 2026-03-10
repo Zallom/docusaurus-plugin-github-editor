@@ -6,7 +6,7 @@ import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
 import {useDocsVersion} from '@docusaurus/plugin-content-docs/client';
 import {usePluginData} from '@docusaurus/useGlobalData';
 import AuthProvider, {useAuth} from '@theme/AuthProvider';
-import type {EditorGlobalData} from '../../src/types';
+import type {EditorGlobalData} from '../types';
 import styles from './styles.module.css';
 
 const PLUGIN_NAME = 'docusaurus-plugin-github-editor';

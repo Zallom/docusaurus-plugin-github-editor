@@ -18,7 +18,7 @@ import {editorTheme, syntaxTheme} from '@theme/EditorCodeMirrorTheme';
 import {useEditorMdxComponents} from '@theme/EditorMdxComponents';
 import {useAuth} from '@theme/AuthProvider';
 import {getFileContent, proposeChanges} from '@theme/GitHubService';
-import type {EditorGlobalData} from '../../src/types';
+import type {EditorGlobalData} from '../types';
 import styles from './styles.module.css';
 
 const PLUGIN_NAME = 'docusaurus-plugin-github-editor';

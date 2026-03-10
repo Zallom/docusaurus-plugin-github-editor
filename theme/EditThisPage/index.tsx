@@ -3,7 +3,7 @@ import Translate from '@docusaurus/Translate';
 import {useHistory} from '@docusaurus/router';
 import {usePluginData} from '@docusaurus/useGlobalData';
 import type {Props} from '@theme/EditThisPage';
-import type {EditorGlobalData} from '../../src/types';
+import type {EditorGlobalData} from '../types';
 
 const PLUGIN_NAME = 'docusaurus-plugin-github-editor';
 

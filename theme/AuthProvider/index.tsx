@@ -7,7 +7,7 @@ import React, {
   type ReactNode,
 } from 'react';
 import {usePluginData} from '@docusaurus/useGlobalData';
-import type {EditorGlobalData, GitHubUser} from '../../src/types';
+import type {EditorGlobalData, GitHubUser} from '../types';
 
 const PLUGIN_NAME = 'docusaurus-plugin-github-editor';
 
