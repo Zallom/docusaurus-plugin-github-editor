@@ -1,6 +1,6 @@
 {
   "name": "docusaurus-plugin-github-editor",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "A Docusaurus v3 plugin that adds a full-featured documentation editor with GitHub OAuth, CodeMirror, live MDX preview, and automatic PR creation.",
   "author": "Zallom <matthias@fca.gg>",
   "license": "MIT",
