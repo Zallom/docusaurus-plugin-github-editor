@@ -20,13 +20,128 @@
   min-height: calc(100vh - var(--ifm-navbar-height) - 120px);
 }
 
+/* Editor layout — sidebar + main content */
+.editorLayout {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.editorMain {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Editor sidebar — file explorer */
+.editorSidebar {
+  width: 260px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--ghe-bg-secondary);
+  border-right: 2px solid var(--ghe-border-color);
+  transition: width 0.2s;
+  overflow: hidden;
+}
+
+.sidebarHeader {
+  display: flex;
+  align-items: center;
+  padding: 0.5rem;
+  border-bottom: 1px solid var(--ghe-border-color);
+  flex-shrink: 0;
+}
+
+.sidebarTitle {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ghe-text-muted);
+  padding-left: 0.25rem;
+  white-space: nowrap;
+}
+
+.sidebarTree {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.25rem 0;
+}
+
+.treeItem {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: var(--ghe-text-secondary);
+  font-size: 0.8rem;
+  font-family: var(--ifm-font-family-base);
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+  text-align: left;
+  transition: background 0.1s, color 0.1s;
+  white-space: nowrap;
+}
+
+.treeItem:hover {
+  background: var(--ghe-hover-bg);
+  color: var(--ghe-text-primary);
+}
+
+.treeFolder {
+  font-weight: 600;
+  color: var(--ghe-text-primary);
+}
+
+.treeFile {
+  color: var(--ghe-text-secondary);
+}
+
+.treeFileActive {
+  background: var(--ghe-accent-color);
+  color: #fff;
+}
+
+.treeFileActive:hover {
+  background: var(--ghe-accent-color);
+  color: #fff;
+}
+
+.treeLabel {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* Persistent exit bar — always visible at top of editor page */
 .exitBar {
   display: flex;
   align-items: center;
+  gap: 0.25rem;
   padding: 0.5rem 1rem;
   border-bottom: 1px solid var(--ghe-border-color);
   flex-shrink: 0;
+}
+
+.sidebarToggleBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: var(--ghe-text-secondary);
+  cursor: pointer;
+  padding: 0.3rem 0.5rem;
+  border-radius: 6px;
+  transition: color 0.15s, background 0.15s;
+}
+
+.sidebarToggleBtn:hover {
+  color: var(--ghe-text-primary);
+  background: var(--ghe-hover-bg);
 }
 
 .exitButton {
@@ -134,7 +249,7 @@
   background: var(--ghe-bg-primary);
   min-height: calc(100vh - var(--ifm-navbar-height) - 120px);
   border: 1px solid var(--ghe-border-color);
-  border-radius: 8px;
+  border-radius: 0;
 }
 
 .editorHeader {
@@ -749,4 +864,9 @@
     width: 100%;
     order: 1;
   }
+
+  .editorSidebar {
+    display: none;
+  }
 }
+

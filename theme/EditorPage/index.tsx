@@ -1,4 +1,4 @@
-import React, {useEffect, useState, useCallback} from 'react';
+import React, {useEffect, useState, useCallback, useMemo} from 'react';
 import Translate, {translate} from '@docusaurus/Translate';
 import BrowserOnly from '@docusaurus/BrowserOnly';
 import {useLocation, useHistory} from '@docusaurus/router';
@@ -32,7 +32,7 @@ function GitHubIcon() {
   );
 }
 
-function EditorExitBar() {
+function EditorExitBar({sidebarCollapsed, onToggleSidebar}: {sidebarCollapsed: boolean; onToggleSidebar: () => void}) {
   const history = useHistory();
   const location = useLocation();
   const {i18n} = useDocusaurusContext();
@@ -61,6 +61,15 @@ function EditorExitBar() {
   return (
     <div className={styles.exitBar}>
       <button
+        className={styles.sidebarToggleBtn}
+        onClick={onToggleSidebar}
+        type="button"
+        title={sidebarCollapsed ? 'Show files' : 'Hide files'}>
+        <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
+          <path fillRule="evenodd" d="M2 4.75A.75.75 0 012.75 4h14.5a.75.75 0 010 1.5H2.75A.75.75 0 012 4.75zm0 10.5a.75.75 0 01.75-.75h14.5a.75.75 0 010 1.5H2.75a.75.75 0 01-.75-.75zM2 10a.75.75 0 01.75-.75h7.5a.75.75 0 010 1.5h-7.5A.75.75 0 012 10z" clipRule="evenodd" />
+        </svg>
+      </button>
+      <button
         className={styles.exitButton}
         onClick={() => history.push(docUrl)}
         type="button">
@@ -86,6 +95,165 @@ function formatSlugCategory(slug: string): string {
   return parts.slice(0, -1).map((p) =>
     p.replace(/[-_]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
   ).join(' › ');
+}
+
+// Resolve a sidebar doc ID to a source file path
+function resolveDocSource(docId: string, sourceMap: Record<string, string>): string | null {
+  if (sourceMap[docId]) return `${docId}.${sourceMap[docId]}`;
+  if (sourceMap[`${docId}/index`]) return `${docId}/index.${sourceMap[`${docId}/index`]}`;
+  const last = docId.split('/').pop() || docId;
+  const catId = `${docId}/${last}`;
+  if (sourceMap[catId]) return `${catId}.${sourceMap[catId]}`;
+  return null;
+}
+
+function SidebarDocItem({item, sourceMap, currentSource, onSelect, depth}: {
+  item: {type: string; label: string; docId?: string; href?: string; items?: any[]};
+  sourceMap: Record<string, string>;
+  currentSource: string | null;
+  onSelect: (source: string) => void;
+  depth: number;
+}) {
+  if (item.type === 'html') return null;
+
+  if (item.type === 'category') {
+    return (
+      <SidebarCategory
+        item={item}
+        sourceMap={sourceMap}
+        currentSource={currentSource}
+        onSelect={onSelect}
+        depth={depth}
+      />
+    );
+  }
+
+  // type === 'link' or 'doc' — resolve to a source file
+  const docId = item.docId ?? (item as any).id ?? '';
+  // Try docId first, then extract slug from href (e.g. "/docs/guide" -> "guide")
+  let source: string | null = null;
+  if (docId) {
+    source = resolveDocSource(docId, sourceMap);
+  }
+  if (!source && item.href) {
+    const slug = item.href.replace(/^\/+|\/+$/g, '').replace(/^docs\//, '');
+    source = resolveDocSource(slug, sourceMap);
+  }
+  if (!source) return null;
+  const isActive = source === currentSource;
+
+  return (
+    <button
+      className={`${styles.treeItem} ${styles.treeFile} ${isActive ? styles.treeFileActive : ''}`}
+      style={{paddingLeft: `${0.5 + depth * 0.75}rem`}}
+      onClick={() => onSelect(source)}
+      type="button">
+      <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14" style={{flexShrink: 0}}>
+        <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clipRule="evenodd" />
+      </svg>
+      <span className={styles.treeLabel}>{item.label}</span>
+    </button>
+  );
+}
+
+function SidebarCategory({item, sourceMap, currentSource, onSelect, depth}: {
+  item: {label: string; items?: any[]; link?: any; docId?: string};
+  sourceMap: Record<string, string>;
+  currentSource: string | null;
+  onSelect: (source: string) => void;
+  depth: number;
+}) {
+  const [open, setOpen] = useState(depth < 1);
+
+  // Category may have a linked doc (index page)
+  const linkDocId = item.link?.docId ?? item.link?.id;
+  const linkHref = item.link?.href ?? item.link?.permalink;
+  let categorySource: string | null = null;
+  if (linkDocId) {
+    categorySource = resolveDocSource(linkDocId, sourceMap);
+  }
+  if (!categorySource && linkHref) {
+    const slug = linkHref.replace(/^\/+|\/+$/g, '').replace(/^docs\//, '');
+    categorySource = resolveDocSource(slug, sourceMap);
+  }
+  // Fallback: try resolving the category label as a slug
+  if (!categorySource) {
+    const labelSlug = item.label.toLowerCase().replace(/\s+/g, '-');
+    categorySource = resolveDocSource(labelSlug, sourceMap);
+  }
+  // Fallback: infer folder from first child's href and try folder/index
+  if (!categorySource && item.items?.length) {
+    const firstChild = item.items[0];
+    const childHref = firstChild?.href ?? firstChild?.docId ?? firstChild?.id;
+    if (childHref) {
+      const parts = childHref.replace(/^\/+|\/+$/g, '').split('/');
+      // Remove last segment (the doc itself) to get the folder
+      if (parts.length >= 2) {
+        const folder = parts.slice(0, -1).join('/');
+        categorySource = resolveDocSource(`${folder}/index`, sourceMap);
+        if (!categorySource) {
+          // Try folder/folder pattern
+          const last = parts[parts.length - 2];
+          categorySource = resolveDocSource(`${folder}/${last}`, sourceMap);
+        }
+      }
+    }
+  }
+  const isCategoryActive = categorySource === currentSource;
+
+  const handleClick = () => {
+    if (categorySource) {
+      onSelect(categorySource);
+      setOpen(true);
+    } else {
+      setOpen(!open);
+    }
+  };
+
+  return (
+    <div>
+      <button
+        className={`${styles.treeItem} ${styles.treeFolder} ${isCategoryActive ? styles.treeFileActive : ''}`}
+        style={{paddingLeft: `${0.5 + depth * 0.75}rem`}}
+        onClick={handleClick}
+        type="button">
+        <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"
+          style={{transform: open ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s', flexShrink: 0}}
+          onClick={(e) => { e.stopPropagation(); setOpen(!open); }}>
+          <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clipRule="evenodd" />
+        </svg>
+        <span className={styles.treeLabel}>{item.label}</span>
+      </button>
+      {open && item.items?.map((child: any, i: number) => (
+        <SidebarDocItem key={child.docId || child.id || child.label || i} item={child} sourceMap={sourceMap} currentSource={currentSource} onSelect={onSelect} depth={depth + 1} />
+      ))}
+    </div>
+  );
+}
+
+function EditorSidebar({sidebarItems, sourceMap, currentSource, onSelectSource, collapsed}: {
+  sidebarItems: any[];
+  sourceMap: Record<string, string>;
+  currentSource: string | null;
+  onSelectSource: (source: string) => void;
+  collapsed: boolean;
+}) {
+  if (collapsed) return null;
+
+  return (
+    <div className={styles.editorSidebar}>
+      <div className={styles.sidebarHeader}>
+        <span className={styles.sidebarTitle}>
+          <Translate id="editor.sidebar.title">Files</Translate>
+        </span>
+      </div>
+      <div className={styles.sidebarTree}>
+        {sidebarItems.map((item: any, i: number) => (
+          <SidebarDocItem key={item.docId || item.id || item.label || i} item={item} sourceMap={sourceMap} currentSource={currentSource} onSelect={onSelectSource} depth={0} />
+        ))}
+      </div>
+    </div>
+  );
 }
 
 function ContributeLanding({sourceMap, onSelectSource}: {
@@ -200,63 +368,21 @@ function EditorInner() {
   const {i18n} = useDocusaurusContext();
   const docsVersion = useDocsVersion();
   const globalData = usePluginData(PLUGIN_NAME) as EditorGlobalData;
-  const {sourceMaps, defaultLocale, logoSrc, versionLabels, repoDocsPath, docsRouteBasePath} = globalData;
+  const {sourceMaps, defaultLocale, logoSrc, versionLabels, repoDocsPath, docsRouteBasePath, editPageSidebar} = globalData;
   const currentLocale = i18n.currentLocale;
   const version = docsVersion.version;
   const docsBasePath = docsRouteBasePath ? `/${docsRouteBasePath}` : '';
   const [oauthProcessing, setOAuthProcessing] = useState(false);
   const [source, setSource] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
-  // Intercept sidebar link clicks to navigate between files in the editor
-  useEffect(() => {
-    const sourceMap = sourceMaps?.[version] ?? {};
+  const sourceMap = sourceMaps?.[version] ?? {};
 
-    function handleClick(e: MouseEvent) {
-      const link = (e.target as HTMLElement).closest('a.menu__link') as HTMLAnchorElement | null;
-      if (!link) return;
-
-      const href = link.getAttribute('href');
-      if (!href || href.startsWith('http')) return;
-
-      let slug = href;
-      const localePrefix = currentLocale !== defaultLocale ? `/${i18n.localeConfigs[currentLocale]?.path ?? currentLocale}` : '';
-      if (localePrefix && slug.startsWith(localePrefix)) {
-        slug = slug.slice(localePrefix.length);
-      }
-      if (docsBasePath && slug.startsWith(docsBasePath)) {
-        slug = slug.slice(docsBasePath.length);
-      }
-      slug = slug.replace(/^\/+|\/+$/g, '');
-
-      if (!slug) {
-        slug = 'readme';
-      }
-
-      let sourceFile: string | null = null;
-      if (sourceMap[slug]) {
-        sourceFile = `${slug}.${sourceMap[slug]}`;
-      } else if (sourceMap[`${slug}/index`]) {
-        sourceFile = `${slug}/index.${sourceMap[`${slug}/index`]}`;
-      } else {
-        // Handle category index docs where slug is "folder" but file is "folder/folder"
-        const lastSegment = slug.split('/').pop() || slug;
-        const categoryDocId = `${slug}/${lastSegment}`;
-        if (sourceMap[categoryDocId]) {
-          sourceFile = `${categoryDocId}.${sourceMap[categoryDocId]}`;
-        }
-      }
-
-      if (sourceFile) {
-        e.preventDefault();
-        e.stopPropagation();
-        history.push(`${location.pathname}?source=${encodeURIComponent(sourceFile)}`);
-      }
-    }
-
-    document.addEventListener('click', handleClick, true);
-    return () => document.removeEventListener('click', handleClick, true);
-  }, [version, sourceMaps, docsBasePath, location.pathname, history, currentLocale, i18n.localeConfigs, defaultLocale]);
+  const handleSelectSource = useCallback((s: string) => {
+    setSource(s);
+    history.push(`${location.pathname}?source=${encodeURIComponent(s)}`);
+  }, [history, location.pathname]);
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -308,18 +434,18 @@ function EditorInner() {
 
   const filePath = source ? buildFilePath(currentLocale, defaultLocale, version, source, repoDocsPath) : null;
 
+  let content: React.ReactNode;
+
   if (isLoading || oauthProcessing) {
-    return (
+    content = (
       <div className={styles.centeredMessage}>
         <Translate id="editor.authenticating" description="Authenticating message">
           Authenticating...
         </Translate>
       </div>
     );
-  }
-
-  if (error) {
-    return (
+  } else if (error) {
+    content = (
       <div className={styles.centeredMessage}>
         <div className={styles.errorCard}>
           <div className={styles.errorTitle}>Error</div>
@@ -327,23 +453,15 @@ function EditorInner() {
         </div>
       </div>
     );
-  }
-
-  if (!source || !filePath) {
-    const sourceMap = sourceMaps?.[version] ?? {};
-    return (
+  } else if (!source || !filePath) {
+    content = (
       <ContributeLanding
         sourceMap={sourceMap}
-        onSelectSource={(s) => {
-          setSource(s);
-          history.push(`${location.pathname}?source=${encodeURIComponent(s)}`);
-        }}
+        onSelectSource={handleSelectSource}
       />
     );
-  }
-
-  if (!token || !user) {
-    return (
+  } else if (!token || !user) {
+    content = (
       <div className={styles.centeredMessage}>
         <div className={styles.authCard}>
           {logoSrc && (
@@ -375,50 +493,102 @@ function EditorInner() {
         </div>
       </div>
     );
+  } else {
+    const EditorContent = React.lazy(
+      () => import('./EditorContent'),
+    );
+
+    content = (
+      <React.Suspense
+        fallback={
+          <div className={styles.centeredMessage}>
+            <Translate id="editor.loading">Loading...</Translate>
+          </div>
+        }>
+        <EditorContent
+          key={filePath}
+          source={source}
+          filePath={filePath}
+          version={version}
+          versionLabels={versionLabels}
+        />
+      </React.Suspense>
+    );
   }
 
-  const EditorContent = React.lazy(
-    () => import('./EditorContent'),
-  );
-
   return (
-    <React.Suspense
-      fallback={
-        <div className={styles.centeredMessage}>
-          <Translate id="editor.loading">Loading...</Translate>
+    <>
+      <EditorExitBar sidebarCollapsed={sidebarCollapsed} onToggleSidebar={() => setSidebarCollapsed(!sidebarCollapsed)} />
+      <div className={styles.editorLayout}>
+        <EditorSidebar
+          sidebarItems={docsVersion.docsSidebars?.[editPageSidebar] ?? docsVersion.docsSidebars?.[Object.keys(docsVersion.docsSidebars)[0]] ?? []}
+          sourceMap={sourceMap}
+          currentSource={source}
+          onSelectSource={handleSelectSource}
+          collapsed={sidebarCollapsed}
+        />
+        <div className={styles.editorMain}>
+          {content}
         </div>
-      }>
-      <EditorContent
-        key={filePath}
-        source={source}
-        filePath={filePath}
-        version={version}
-        versionLabels={versionLabels}
-      />
-    </React.Suspense>
+      </div>
+    </>
   );
 }
 
-export default function EditorPage(): JSX.Element {
+function useHideDocusaurusSidebar() {
+  const ref = React.useRef<HTMLDivElement>(null);
+
   useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+
     document.body.classList.add('editor-page');
-    return () => document.body.classList.remove('editor-page');
-  }, []);
+    const modified: {el: HTMLElement; prop: string; old: string}[] = [];
+
+    let parent = el.parentElement;
+    while (parent && parent !== document.body) {
+      for (const sibling of Array.from(parent.children) as HTMLElement[]) {
+        if (sibling.tagName === 'ASIDE' || /sidebar/i.test(sibling.className?.toString() ?? '')) {
+          modified.push({el: sibling, prop: 'display', old: sibling.style.display});
+          sibling.style.setProperty('display', 'none', 'important');
+        }
+      }
+      modified.push({el: parent, prop: 'max-width', old: parent.style.maxWidth});
+      modified.push({el: parent, prop: 'width', old: parent.style.width});
+      parent.style.setProperty('max-width', '100%', 'important');
+      parent.style.setProperty('width', '100%', 'important');
+      parent = parent.parentElement;
+    }
+
+    return () => {
+      document.body.classList.remove('editor-page');
+      for (const m of modified) {
+        if (m.old) {
+          m.el.style.setProperty(m.prop, m.old);
+        } else {
+          m.el.style.removeProperty(m.prop);
+        }
+      }
+    };
+  });
+
+  return ref;
+}
+
+export default function EditorPage(): JSX.Element {
+  const rootRef = useHideDocusaurusSidebar();
 
   return (
-    <div className={styles.editorRoot}>
+    <div className={styles.editorRoot} ref={rootRef}>
       <BrowserOnly fallback={
         <div className={styles.centeredMessage}>
           <Translate id="editor.loading">Loading...</Translate>
         </div>
       }>
         {() => (
-          <>
-            <EditorExitBar />
-            <AuthProvider>
-              <EditorInner />
-            </AuthProvider>
-          </>
+          <AuthProvider>
+            <EditorInner />
+          </AuthProvider>
         )}
       </BrowserOnly>
     </div>
