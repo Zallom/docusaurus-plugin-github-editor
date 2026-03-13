@@ -196,7 +196,8 @@ function prepareMdxSource(raw: string): string {
     .replace(/^import\s+.*$/gm, '')
     .replace(/^export\s+(default\s+)?function\s+\w+\s*\([^)]*\)\s*\{[\s\S]*?^}/gm, '')
     .replace(/^export\s+.*$/gm, '')
-    .replace(/\s*\{#[\w-]+\}/g, '');
+    .replace(/\s*\{#[\w-]+\}/g, '')
+    .replace(/<!--([\s\S]*?)-->/g, '{/* $1 */}');
 
   return titleHeading + body;
 }
