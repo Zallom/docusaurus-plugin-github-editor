@@ -170,7 +170,7 @@ export default function pluginGithubEditor(
         baseBranch: options.baseBranch,
         sourceMaps,
         docsPath,
-        repoDocsPath: options.repoDocsPath || docsPath,
+        repoDocsPath: options.repoDocsPath ?? docsPath,
         docsRouteBasePath,
         defaultLocale: options.defaultLocale ?? 'en',
         editRoute: options.editRoute ?? '/edit',
